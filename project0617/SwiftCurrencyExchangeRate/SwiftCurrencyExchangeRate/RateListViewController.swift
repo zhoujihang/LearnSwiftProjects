@@ -124,6 +124,7 @@ class RateListViewController: UIViewController {
     }
 }
 
+// 似乎没啥用
 extension RateListViewController: UISearchControllerDelegate, UISearchResultsUpdating {
     func willPresentSearchController(searchController: UISearchController){
         print(#function)
@@ -149,6 +150,11 @@ extension RateListViewController: UISearchBarDelegate {
         print(#function)
         self.showSearchResult = true
         
+        if let text = searchBar.text {
+            self.showSearchResultForSearchText(text)
+        }else {
+            self.showSearchResultForSearchText("")
+        }
     }
     func searchBar(searchBar: UISearchBar, textDidChange searchText: String) {
         print(#function)
@@ -159,6 +165,8 @@ extension RateListViewController: UISearchBarDelegate {
         if let text = searchBar.text {
             self.showSearchResultForSearchText(text)
         }
+        // 结束搜索，取消第一响应者
+        searchBar.resignFirstResponder()
     }
     func searchBarCancelButtonClicked(searchBar: UISearchBar){
         print(#function)
