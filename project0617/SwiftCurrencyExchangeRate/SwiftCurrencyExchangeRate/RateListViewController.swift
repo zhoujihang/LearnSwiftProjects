@@ -15,10 +15,17 @@ import ObjectMapper
 class RateListViewController: UIViewController {
     
     weak var rateListTableView: UITableView!
-    var standCurrencyCodeModel: CurrencyCodeModel?              // 参照货币
-    var rateListModel: RateListModel?                           // 货币数据
+    var searchController: UISearchController!                   // 搜索框
+    
+    // 数据源
+    var searchRateModelArray: [CurrencyCodeModel] = []          // 满足搜索结果的货币
+    var rateModelArray: [CurrencyCodeModel] = []                // 所有的货币名称
     var rateDetailDic: [String : ExchangeRateReturnModel] = [:] // 详情数据
     var rateDetailHeightDic: [String : NSNumber] = [:]          // 缓存详情cell的高度
+    
+    // 标志
+    var showSearchResult: Bool  = false                         // 显示搜索结果
+    var standCurrencyCodeModel: CurrencyCodeModel?              // 参照货币
     var requestingCodeSet: Set<String> = []                     // 正在请求详情的code集合
     
     override func viewDidLoad() {
@@ -40,8 +47,20 @@ class RateListViewController: UIViewController {
         self.view.addSubview(rateListTableView)
         self.rateListTableView = rateListTableView
         
+        self.setUpSearchController()
+        
         self.rateListTableView.registerClass(RateListSimpleViewCell.classForCoder(), forCellReuseIdentifier: RateListSimpleViewCell.cellIdentifier())
         self.rateListTableView.registerClass(RateListDetailViewCell.classForCoder(), forCellReuseIdentifier: RateListDetailViewCell.cellIdentifier())
+    }
+    func setUpSearchController() {
+        self.searchController = UISearchController(searchResultsController: nil)
+        self.searchController.searchResultsUpdater = self
+        self.searchController.delegate = self
+        self.searchController.dimsBackgroundDuringPresentation = false
+        self.searchController.searchBar.placeholder = "search hear"
+        self.searchController.searchBar.delegate = self
+        self.searchController.searchBar.sizeToFit()
+        self.rateListTableView.tableHeaderView = self.searchController.searchBar
     }
     func setUpConstraints() {
         self.rateListTableView.snp_makeConstraints { [weak self] (make) in
@@ -71,10 +90,11 @@ class RateListViewController: UIViewController {
                 let json = JSON(value)
                 
                 if let strongSelf = self {
-                    let rateListModel = Mapper<RateListModel>().map(json.object)
-                    rateListModel?.removeUnExistCode()
-                    strongSelf.rateListModel = rateListModel
-                    strongSelf.rateListTableView.reloadData()
+                    if let rateListModel = Mapper<RateListModel>().map(json.object) {
+                        rateListModel.removeUnExistCode()
+                        strongSelf.rateModelArray = rateListModel.existCurrencyModelArr
+                        strongSelf.rateListTableView.reloadData()
+                    }
                 }
             case .Failure(let error):
                 print(error)
@@ -102,23 +122,90 @@ class RateListViewController: UIViewController {
             }
         }
     }
-    
-    
 }
 
-//MARK: 代理
+extension RateListViewController: UISearchControllerDelegate, UISearchResultsUpdating {
+    func willPresentSearchController(searchController: UISearchController){
+        print(#function)
+    }
+    func didPresentSearchController(searchController: UISearchController){
+        print(#function)
+    }
+    func willDismissSearchController(searchController: UISearchController){
+        print(#function)
+    }
+    func didDismissSearchController(searchController: UISearchController){
+        print(#function)
+    }
+    func presentSearchController(searchController: UISearchController){
+        print(#function)
+    }
+    func updateSearchResultsForSearchController(searchController: UISearchController){
+        print(#function)
+    }
+}
+extension RateListViewController: UISearchBarDelegate {
+    func searchBarTextDidBeginEditing(searchBar: UISearchBar) {
+        print(#function)
+        self.showSearchResult = true
+        
+    }
+    func searchBar(searchBar: UISearchBar, textDidChange searchText: String) {
+        print(#function)
+        self.showSearchResultForSearchText(searchText)
+    }
+    func searchBarSearchButtonClicked(searchBar: UISearchBar) {
+        print(#function)
+        if let text = searchBar.text {
+            self.showSearchResultForSearchText(text)
+        }
+    }
+    func searchBarCancelButtonClicked(searchBar: UISearchBar){
+        print(#function)
+        self.showSearchResult = false
+        self.rateListTableView.reloadData()
+    }
+    
+    // 过滤搜索结果
+    func showSearchResultForSearchText(text: String) {
+        if text == "" {
+            self.searchRateModelArray = self.rateModelArray
+            self.rateListTableView.reloadData()
+            return
+        }
+        // 根据用户输入过滤数据到 filteredArray
+        self.searchRateModelArray = self.filterModelForSearchText(text)
+        self.rateListTableView.reloadData()
+    }
+    func filterModelForSearchText(text: String) -> [CurrencyCodeModel] {
+        var marr: [CurrencyCodeModel] = []
+        for model in self.rateModelArray {
+            let rangeName = model.name!.rangeOfString(text, options: .CaseInsensitiveSearch, range: nil, locale: nil)
+            if rangeName?.startIndex != nil {
+                marr.append(model)
+                continue
+            }
+            let rangeCode = model.code!.rangeOfString(text, options: .CaseInsensitiveSearch, range: nil, locale: nil)
+            if rangeCode?.startIndex != nil {
+                marr.append(model)
+                continue
+            }
+        }
+        return marr
+    }
+}
+
+//MARK: tableview 代理
 extension RateListViewController: UITableViewDelegate, UITableViewDataSource {
     
     func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        if let count:Int = self.rateListModel?.existCurrencyModelArr?.count{
-            return count
-        }
-        return 0
+        let count = self.showSearchResult ? self.searchRateModelArray.count : self.rateModelArray.count
+        return count
     }
     func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        let currencyModel = self.rateListModel?.existCurrencyModelArr![indexPath.row]
+        let currencyModel = self.showSearchResult ? self.searchRateModelArray[indexPath.row] : self.rateModelArray[indexPath.row]
         var cell: UITableViewCell?
-        if let detailModel = self.rateDetailDic[(currencyModel?.code!)!] {
+        if let detailModel = self.rateDetailDic[currencyModel.code!] {
             // 显示详情
             let detailCell = tableView.dequeueReusableCellWithIdentifier(RateListDetailViewCell.cellIdentifier(), forIndexPath: indexPath) as! RateListDetailViewCell
             detailModel.fromCurrencyModel = self.standCurrencyCodeModel
@@ -135,12 +222,11 @@ extension RateListViewController: UITableViewDelegate, UITableViewDataSource {
         return cell!
     }
     func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
-
-        let currencyModel = self.rateListModel?.existCurrencyModelArr![indexPath.row]
+        let currencyModel = self.showSearchResult ? self.searchRateModelArray[indexPath.row] : self.rateModelArray[indexPath.row]
         var height: CGFloat = 0.0
-        if let detailModel = self.rateDetailDic[currencyModel!.code!] {
+        if let detailModel = self.rateDetailDic[currencyModel.code!] {
             // 详情
-            if let storedHeight = self.rateDetailHeightDic[currencyModel!.code!] {
+            if let storedHeight = self.rateDetailHeightDic[currencyModel.code!] {
                 height = CGFloat(storedHeight.floatValue)
             }else {
                 let detailCell = RateListDetailViewCell()
@@ -148,7 +234,7 @@ extension RateListViewController: UITableViewDelegate, UITableViewDataSource {
                 detailModel.toCurrencyModel = currencyModel
                 detailCell.rateModel = detailModel
                 height = detailCell.cellHeight()
-                self.rateDetailHeightDic[currencyModel!.code!] = NSNumber(float: Float(height))
+                self.rateDetailHeightDic[currencyModel.code!] = NSNumber(float: Float(height))
             }
         }else {
             // simple

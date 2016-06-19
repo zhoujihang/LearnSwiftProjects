@@ -20,7 +20,7 @@ class RateListModel: BaseModel {
                 for code in retData_s {
                     for currencyModel in sharedModelList {
                         if code == currencyModel.code {
-                            self.existCurrencyModelArr?.append(currencyModel)
+                            self.existCurrencyModelArr.append(currencyModel)
                             break
                         }
                     }
@@ -30,7 +30,7 @@ class RateListModel: BaseModel {
             }
         }
     }
-    var existCurrencyModelArr: [CurrencyCodeModel]? = []
+    var existCurrencyModelArr: [CurrencyCodeModel] = []
     
     override func mapping(map: Map) {
         errNum <- map["errNum"]

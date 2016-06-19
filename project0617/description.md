@@ -4,3 +4,4 @@
 1. tableview 和 自定义cell
 2. cell 高度缓存
 3. Alamofire ＋ SwiftyJson ＋ ObjectMapper 实现简单的网络数据转模型
+4. 增加搜索栏，提供搜索功能
